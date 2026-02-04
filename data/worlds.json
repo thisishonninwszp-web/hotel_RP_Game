@@ -1,0 +1,65 @@
+[
+    {
+        "name": "ビジネス・イン・博多",
+        "type": "ビジネスホテル (Biz Hotel)",
+        "policy": "利益第一 (コストカット)",
+        "allowed_compensations": [
+            "上司の許可を得て、割引クーポンを発行",
+            "空室があれば、騒音の少ない部屋へ移動",
+            "ミネラルウォーターや軽食を気持ち程度に提供",
+            "誠意を込めて謝罪",
+            "状況に応じて、近隣ホテルの空室状況を確認し、代替案を提示（ただし、費用はお客様負担）"
+        ],
+        "constraints": "コスト削減のため、過度なサービスや金銭的な補償は原則禁止。お客様の要望には丁寧に対応しつつ、可能な範囲で代替案を提示する。上司の許可なしに、独自の判断でクーポンや返金などの対応は行わないこと。クレーム対応は記録し、上司に報告すること。",
+        "background_story": "博多駅から徒歩5分に位置する「ビジネス・イン・博多」は、利便性の高さから出張客に人気のビジネスホテルだ。ゴールデンウィークという書き入れ時、稼働率はほぼ100%。しかし、今年は例年と様子が違った。GW後半、巨大な台風が九州に接近。旅行客の足止めが相次ぎ、ホテルは文字通り「缶詰状態」となった。ただでさえ手狭なロビーは人で溢れ、予約していた新幹線のキャンセル待ちをする客、いつになったら出発できるのかと苛立つ客、そして、小さな子供を連れた家族連れでごった返している。普段は静かなホテルが、さながら難民キャンプの様相を呈していた。さらに悪いことに、ホテルは徹底したコストカットの方針を敷いており、人員も必要最低限。台風の影響で食材の調達も滞り、レストランのメニューは大幅に縮小。アメニティの補充も遅れがちだ。停滞客からのクレームは日に日に増え、フロントスタッフの疲労はピークに達していた。そんな中、あなたはこのホテルのフロントマネージャーとして、嵐のような状況を乗り切らなければならない。限られた資源と制約の中で、顧客満足度を維持し、ホテルの評判を守り抜けるだろうか？"
+    },
+    {
+        "name": "グランド・ミヤコ・京都",
+        "type": "ビジネスホテル (Biz Hotel)",
+        "policy": "フレンドリー＆カジュアル",
+        "allowed_compensations": [
+            "誠意を込めた謝罪",
+            "宿泊約款に基づいた対応",
+            "損害賠償請求の検討",
+            "警察への通報",
+            "迷惑行為の中止要請",
+            "他の宿泊客への影響を最小限に抑えるための措置"
+        ],
+        "constraints": "いかなる状況においても、返金は厳禁。お客様には常に笑顔で接し、丁寧な言葉遣いを心がけること。ただし、ホテル側の非を認めず、あくまでお客様の誤解であるという姿勢を崩さない。クレームに対しては、マニュアル通りの対応を徹底し、個人的な感情は一切排除すること。お客様が怒り始めた場合は、毅然とした態度で対応し、必要であれば警察に通報することも辞さない。フレンドリー＆カジュアルな接客は、あくまで「演出」であり、お客様に過度な期待を抱かせないように注意すること。",
+        "background_story": "夏の京都は観光客で溢れ、グランド・ミヤコ・京都も例外なく賑わっていた。しかし、3.1という評価が示すように、その裏側では様々な問題が噴出していた。老朽化が進む設備、慢性的な人手不足、そして「フレンドリー＆カジュアル」という経営方針が、現場の混乱に拍車をかけていた。そこに追い打ちをかけるように、記録的な大雪が京都を襲い、交通機関は麻痺状態に。スタッフの多くが遅刻、あるいは出勤不能となり、ホテルは文字通り回らなくなった。そんな中、ホテルに宿泊していたのは、夏休みを利用した家族連れ、ビジネス客、そして外国人観光客。彼らはそれぞれ異なる期待を抱き、ホテルにやってきたが、現実は彼らの期待を大きく裏切るものだった。暖房が効かない部屋、清掃が行き届いていないバスルーム、そして遅れてくるルームサービス。客からのクレームは日に日に増え、フロントは怒号が飛び交う戦場の様相を呈していた。経営陣は「返金は絶対に認めない」という強硬な姿勢を崩さず、現場のスタッフに「損害賠償を請求しろ」と指示する始末。フレンドリー＆カジュアルな仮面の下に隠された、冷酷なまでの合理主義が、今、牙をむこうとしていた。"
+    },
+    {
+        "name": "グランド・ホテル",
+        "type": "高級旅館 (Ryokan)",
+        "context": "春の桜シーズン、満室の高級旅館。評価は3.5と伸び悩んでおり、設備の老朽化も課題。中級難易度で、ある程度の柔軟性は認められるものの、基本ルールは遵守する必要がある。",
+        "constraints": [
+            "お客様への丁寧な言葉遣いを徹底すること。",
+            "客室係は、お客様のプライバシーを尊重し、許可なく客室に入らないこと。",
+            "夕食の時間は厳守し、特別な理由がない限り変更は認められない。",
+            "アレルギー対応は確実に行い、事前に詳細な情報を確認すること。",
+            "お風呂の利用時間、特に混雑時には譲り合いの精神を促すこと。",
+            "貴重品管理については、お客様自身に責任を持っていただく旨を伝えること。",
+            "お見送りは玄関先まで行い、感謝の気持ちを伝えること。",
+            "桜の開花状況に関する質問には、正確かつ最新の情報を提供するよう努めること。",
+            "予約時のプランと異なる要望があった場合は、可能な範囲で対応するが、支配人の許可を得ること。",
+            "苦情やトラブルが発生した場合は、速やかに上長に報告し、指示を仰ぐこと。"
+        ],
+        "background_story": "グランド・ホテルは、かつては桜の名所として名を馳せた由緒ある旅館だった。創業者の情熱と、職人たちの技術が結集し、贅を尽くした造りは、訪れる人々を魅了してやまなかった。しかし、時代とともに設備の老朽化が進み、経営は徐々に悪化。数年前には倒産の危機に瀕したが、新たな経営陣の努力により、なんとか持ちこたえている状態だ。\n\n現在の評価は3.5。かつての輝きを取り戻すには、サービス品質の向上と、施設の改修が不可欠だ。春の桜シーズンは、一年で最も稼ぎ時であり、満室が続く。しかし、現場のスタッフは疲弊の色を隠せない。設備の故障、人手不足、そしてお客様からの様々な要望…問題は山積している。\n\n中級難易度という設定は、現場の裁量に一定の自由度を与える。例えば、多少の融通を利かせてお客様を喜ばせたり、臨機応変な対応でトラブルを回避したりすることもできる。しかし、それはあくまで例外的な措置であり、基本的なルールは遵守しなければならない。支配人の目は厳しく、少しでも逸脱すれば、厳しい叱責が飛んでくる。\n\n桜が満開を迎えるこの季節、グランド・ホテルは、希望と不安が入り混じる、特別な場所となる。かつての栄光を取り戻すために、スタッフは一丸となって奮闘する。しかし、その道のりは決して平坦ではない。満室の客室、絶え間なく続くお客様の対応、そして老朽化した設備…様々な困難が、彼らを待ち受けているのだ。",
+        "rating_count": 11,
+        "current_rating": 2.82
+    },
+    {
+        "name": "星空グランピング・富士",
+        "type": "カプセルホテル (Capsule)",
+        "context": "A popular capsule hotel near Mount Fuji, known for its stargazing opportunities, currently faces operational challenges due to being fully booked during the cherry blossom season and a nearby fireworks festival.",
+        "constraints": "満室 (Fully Booked - No Room Change): No room changes are permitted under any circumstances. No upgrades or downgrades are available. 近隣で花火大会 (Event - Noise/Crowd): Guests are advised that outdoor areas may be crowded and noisy due to the fireworks festival. While the hotel will attempt to minimize disruption, some noise is unavoidable. The rooftop stargazing area may have limited access during peak fireworks viewing times. No refunds or compensation will be offered due to noise or crowds associated with the event.",
+        "background_story": "The 星空グランピング・富士, or Starry Sky Glamping Fuji, started as a passion project by a retired astronomy professor, Dr. Hiroshi Tanaka. He envisioned a place where people could experience the majesty of Mount Fuji by day and the brilliance of the night sky by night, all within the comfort of modern, yet minimalist, capsule accommodations. The original design incorporated a unique retractable roof system above the main capsule block, allowing guests to gaze at the stars directly from their beds. It was a hit from the start.\n\nIn its early years, the hotel thrived, attracting both domestic and international tourists. Dr. Tanaka, with his intimate knowledge of the constellations and local folklore, personally led stargazing tours, adding a personal touch that guests cherished. However, as Dr. Tanaka aged, the burden of managing the hotel became too much. Five years ago, he reluctantly sold the property to a larger hotel chain, 'Galaxy Resorts,' known for their efficient, but often impersonal, management style.\n\nGalaxy Resorts invested in upgrades, expanding the capsule capacity and adding more modern amenities, but they also cut corners. Dr. Tanaka's stargazing tours were replaced with pre-recorded audio guides, and the personalized service was significantly reduced. While occupancy rates remained high, guest satisfaction dipped, particularly among repeat visitors who missed the original charm of the place. The unique retractable roof, once the hotel's main draw, has become a maintenance nightmare. Galaxy Resorts has postponed repair after repair due to budget constraints.\n\nCurrently, the hotel is under the management of Ms. Akari Sato, a recent business school graduate eager to prove herself. She inherited a hotel that is consistently fully booked, especially during peak seasons like the spring cherry blossom season and summer fireworks festivals. While high occupancy might seem ideal, it presents a unique set of challenges. The '満室 (Fully Booked - No Room Change)' policy, a directive from corporate to maximize revenue, leaves Ms. Sato with absolutely no flexibility. A minor maintenance issue in a capsule, a guest requesting a different location within the hotel due to a medical condition, or even a simple request for an upgrade are all met with the same answer: 'No.' This breeds frustration and negativity among both guests and staff.\n\nAdding to the pressure is the '近隣で花火大会 (Event - Noise/Crowd)'. While the festival brings in even more tourists, it also brings noise complaints, overcrowding, and logistical nightmares. The small hotel staff is stretched thin, dealing with demanding guests, managing the increased flow of traffic, and trying to maintain some semblance of peace and quiet for those who aren't interested in the fireworks. The corporate office, focused solely on profits, offers little support, leaving Ms. Sato and her team to handle the situation as best they can. She fears that one major incident, a particularly irate guest, or a significant service failure, could tarnish the hotel's reputation and jeopardize her career. She’s desperately seeking solutions to improve guest experience within the rigid framework imposed by Galaxy Resorts. The weight of maintaining both high occupancy and guest satisfaction during this chaotic period feels immense, and Akari often wonders if she’s truly cut out for the hospitality industry. Furthermore, a rumor has spread that the retractable roof will be permanently fixed shut after the fireworks season to cut down on maintenance costs, which would eliminate the hotel's main selling point and likely lead to a significant drop in customer satisfaction."
+    },
+    {
+        "name": "中国人大欢迎酒店",
+        "type": "高級旅館",
+        "context": "現在、繁忙期を迎えており、多くのお客様にご利用いただいております。施設は崭新で、快適な滞在を提供できるよう努めておりますが、評価は3.5と伸び悩んでおり、サービス向上に力を入れています。",
+        "constraints": "お客様に対して常に敬意を払い、快適な滞在をサポートすることを最優先とします。中国からのお客様には、特に文化や習慣に配慮したおもてなしを心がけます。",
+        "background_story": "当ホテルは、創業者である王さんが、中国からの観光客をもてなしたいという強い思いから始まりました。当初は小さな民宿でしたが、王さんの誠実な人柄と、細やかなサービスが評判を呼び、徐々に規模を拡大してきました。しかし、近年は競争激化により、集客に苦戦しており、設備の老朽化も進んでいます。噂では、王さんの息子である現在の社長が、経営方針を巡って王さんと対立しており、それがサービスの低下につながっているとも言われています。また、近隣のホテルが低価格戦略で攻勢をかけており、価格競争に巻き込まれることを懸念しています。新たな顧客層の開拓や、サービスの差別化を図る必要に迫られています。"
+    }
+]

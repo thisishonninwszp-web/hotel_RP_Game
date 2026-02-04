@@ -1,0 +1,42 @@
+[
+    {
+        "timestamp": "2026-02-05 01:23",
+        "score": "0-100",
+        "world": "グランド・ホテル",
+        "guest": "加藤 恵",
+        "result": {
+            "manager_review": {
+                "score": "0-100",
+                "compliance": "ルールを守ったか？",
+                "overall_comment": "マネージャーのコメント"
+            },
+            "learn_breakdown": {
+                "L_listen": {
+                    "passed": false,
+                    "comment": "ゲストは最初から激怒しており、落ち着いて聞くことが困難。"
+                },
+                "E_empathize": {
+                    "passed": false,
+                    "comment": "ゲストの怒りの原因を特定せず、共感を示さなかった。"
+                },
+                "A_apologize": {
+                    "passed": false,
+                    "comment": "具体的な謝罪の言葉がなかった。"
+                },
+                "R_resolve": {
+                    "passed": false,
+                    "comment": "騒音問題の解決策を提示しなかった。"
+                },
+                "N_notify": {
+                    "passed": false,
+                    "comment": "問題を解決するために、上司や関係部署に報告しなかった。"
+                }
+            },
+            "guest_review": {
+                "satisfaction": "★☆☆☆☆",
+                "emotional_journey": "激怒 -> さらに激怒",
+                "private_comment": "全く最悪だ！二度と泊まらない！"
+            }
+        }
+    }
+]
