@@ -210,7 +210,7 @@ if st.session_state.nav_page == "dashboard":
             2.  **Interaction (対話)**:
                 - テキスト、または**音声入力**で接客を行います。難易度が高いほど、AIは簡単には許してくれません。
             3.  **Review (評価)**:
-                - 対応終了後、**「評価レポート」**を確認してください。
+                - 対応終了後、「**評価レポート**」を確認してください。
                 - 支配人AIが、あなたの対応を**LEARNモデル**（Listen, Empathize, Apologize, Resolve, Notify）に基づいて厳しく採点します。
             """)
             
@@ -798,112 +798,205 @@ elif st.session_state.nav_page == "chat":
 elif st.session_state.nav_page == "eval":
     st.markdown("<div class='main-header'>📊 接客評価レポート</div>", unsafe_allow_html=True)
     
-    # 1. 还没有结果时，先生成
     if not st.session_state.evaluation_result:
-        with st.spinner("支配人がログを確認中... (辛口評価を生成中)"):
-            # 把所有对话拼接成文本
+        with st.spinner("支配人がログを確認中..."):
+            # 1. 整理对话文本
             log_text = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
             
-            # 调用 Logic
-            result = logic.evaluate_interaction(log_text)
+            # 2. 准备环境锚定信息 (传给评价函数)
+            world_ctx = {
+                "name": st.session_state.get('active_world_name'),
+                "type": st.session_state.get('world_type', 'ホテル'),
+                "constraints": st.session_state.get('active_world_constraints'),
+                "context": st.session_state.get('active_world_context')
+            }
+            
+            # 3. 调用强化后的逻辑 (传递两个参数)
+            result = logic.evaluate_interaction(log_text, world_ctx)
             st.session_state.evaluation_result = result
             
-            # ✅ 核心修复：保存到历史记录文件
-            # 1. 构造数据 (注意：key 改成了 timestamp 以匹配读取逻辑)
+            # 🔥 [NEW!] 经营核心算法触发 
+            # 从 AI 的 "★4" 这种回复里提取数字 4
+            satisfaction_text = result.get('guest_inner_voice', {}).get('satisfaction', '★3')
+            guest_stars = utils.parse_stars(satisfaction_text)
+            
+            # 更新 worlds.json 里的酒店评分，并记录变化
+            old_r, new_r = utils.update_world_rating(world_ctx["name"], guest_stars)
+            st.session_state.rating_change = (old_r, new_r) # 存入 session 用于下面显示
+
+            # 4. 构造统一的历史条目 (确保键名和显示页面一致)
             history_entry = {
-                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), # 修复：这里改成 timestamp
-                "role": st.session_state.current_role,
-                "active_guest": st.session_state.active_guest_name, # 增加字段
-                "score": result['manager_review'].get('score', 0),
-                "satisfaction": result['guest_review'].get('satisfaction', '???'),
-                "summary": result['manager_review'].get('overall_comment', '')[:50] + "...",
-                "full_result": result # 保存完整结果备查
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "world": world_ctx["name"],
+                "guest": st.session_state.get('active_guest_name'),
+                "score": result.get('manager_review', {}).get('score', 0),
+                "status": result.get('manager_review', {}).get('overall_status', 'N/A'),
+                "result": result  # 保存完整结果
             }
 
-            # 2. 强力保存 (不再静音报错)
-            try:
-                # 优先尝试使用 utils.HISTORY_FILE (通常是 data/history.json)
-                target_file = getattr(utils, 'HISTORY_FILE', 'history.json')
-                
-                # 读取旧数据
-                try:
-                    with open(target_file, 'r', encoding='utf-8') as f:
-                        current_hist = json.load(f)
-                except (FileNotFoundError, json.JSONDecodeError):
-                    current_hist = []
-                
-                # 插入新数据
-                if not isinstance(current_hist, list): current_hist = []
-                current_hist.insert(0, history_entry)
-                
-                # 写入文件
-                with open(target_file, 'w', encoding='utf-8') as f:
-                    json.dump(current_hist, f, ensure_ascii=False, indent=2)
-                
-                st.success(f"✅ プレイ履歴を保存しました！ ({target_file})")
-                
-            except Exception as e:
-                st.error(f"⚠️ 履歴保存エラー: {e}")
-                # 如果出错，打印出路径方便调试
-                st.write(f"Trying to save to: {getattr(utils, 'HISTORY_FILE', 'Unknown')}")
+            # 5. 调用统一保存函数 (删掉了你之前那段冗余的 open(...) 代码)
+            if utils.add_to_history(history_entry):
+                st.success("✅ プレイ履歴を保存しました！")
+            else:
+                st.error("⚠️ 履歴の保存に失敗しました。")
 
-    # 2. 显示结果
+    # --- 渲染详细结果 ---
     res = st.session_state.evaluation_result
+    m = res.get('manager_review', {})
+    g = res.get('guest_inner_voice', {})
+
     if "error" in res:
         st.error(f"評価エラー: {res['error']}")
     else:
-        # --- Manager Review ---
-        st.subheader("👨‍💼 支配人の評価")
-        score = res['manager_review'].get('score', 0)
+        # A. 核心得分与排名
+        st.subheader(f"👨‍💼 支配人の判定: {m.get('overall_status', '評価中')}")
         
-        # 这里的 score 现在应该是数字了
-        st.metric("Manager Score", f"{score} / 100")
-        st.progress(score)
+        # 🟢 修改：定义两列来放置得分和经营变化
+        col_score, col_tycoon = st.columns(2)
         
-        st.info(f"📝 **総評**: {res['manager_review'].get('overall_comment')}")
-        st.caption(f"ルール遵守: {res['manager_review'].get('compliance')}")
+        with col_score:
+            score = m.get('score', 0)
+            st.metric("综合得分", f"{score} / 100")
+            st.progress(score / 100)
+
+        with col_tycoon: 
+            if "rating_change" in st.session_state:
+                old_r, new_r = st.session_state.rating_change
+                diff = round(new_r - old_r, 2)
+                st.metric(
+                    label="🏨 ホテルの総合評価 (Tycoon Rating)",
+                    value=f"{new_r} / 5.0",
+                    delta=f"{diff}",
+                    delta_color="normal"
+                )
 
         st.divider()
 
-        # --- Guest Review (本音) ---
-        st.subheader("😠 お客様の本音 (Guest Voice)")
-        g = res['guest_review']
-        c1, c2 = st.columns([1, 2])
-        c1.metric("満足度", g.get('satisfaction'))
-        c1.write(f"**感情推移**: {g.get('emotional_journey')}")
+        # 🔵 [NEW!] LEARNモデル分析 (学术理论支撑)
+        st.subheader("📚 LEARNモデル適用チェック")
+        l_analysis = res.get('learn_analysis', {})
         
-        # 这里显示长评
-        c2.warning(f"💭 「{g.get('private_comment')}」")
+        # 使用 5 列展示图标，增加视觉高级感
+        l_cols = st.columns(5)
+        learn_steps = [
+            ("L", "Listen"), ("E", "Empathize"), ("A", "Apologize"), 
+            ("R", "Resolve"), ("N", "Notify")
+        ]
+        # 提示：这里你可以根据逻辑让图标变色，或者直接显示总评
+        for i, (letter, full) in enumerate(learn_steps):
+            l_cols[i].markdown(f"### {letter}")
+            l_cols[i].caption(full)
+        
+        st.info(f"**LEARN総評**: {l_analysis.get('summary', '対応ログから分析中...')}")
 
         st.divider()
+
+        # 🟣 [NEW!] プレイヤー接客スタイル分析 (玩家个性化反馈)
+        st.subheader("👤 プレイヤー分析 (Behavioral Analysis)")
+        p_analysis = res.get('player_analysis', {})
         
-        # --- LEARN Model Breakdown ---
-        with st.expander("📚 LEARNモデル詳細分析"):
-            for key, val in res.get('learn_breakdown', {}).items():
-                icon = "✅" if val.get('passed') else "❌"
-                st.write(f"**{key}**: {icon} {val.get('comment')}")
+        pa_c1, pa_c2 = st.columns([1, 2])
+        with pa_c1:
+            st.success(f"**接客タイプ**\n\n{p_analysis.get('type', '標準的')}")
+        with pa_c2:
+            st.write(f"**行動特徴**: {p_analysis.get('traits', 'ログから特徴を抽出中...')}")
+            st.warning(f"🚀 **成長のヒント**: {p_analysis.get('growth_tip', '継続的な練習でスキルアップしましょう。')}")
+
+        st.divider()
+
+        # ---------------------------------------------------------
+        # B. 优点与缺点 (多维度对比)
+        # ---------------------------------------------------------
+        st.subheader("⚖️ 強みと改善点 (Strengths & Weaknesses)")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.success("🌟 **Excellent (良かった点)**")
+            strengths = m.get('strengths', [])
+            if strengths:
+                for s in strengths: st.write(f"✅ {s}")
+            else:
+                st.write("特になし")
+                
+        with c2:
+            st.error("⚠️ **Weakness (改善が必要な点)**")
+            weaknesses = m.get('weaknesses', [])
+            if weaknesses:
+                for w in weaknesses: st.write(f"❌ {w}")
+            else:
+                st.write("特になし")
+
+        st.divider()
+
+        # ---------------------------------------------------------
+        # C. 深度分析：决定性瞬间 & 规则遵守
+        # ---------------------------------------------------------
+        st.subheader("🎯 深層分析 (Deep Analysis)")
+        
+        # 关键转折点分析
+        st.info(f"**決定的な瞬間 (Critical Moment)**: \n\n {m.get('critical_moment', '分析中...')}")
+        
+        # 逻辑合规性检查（环境锚定）
+        compliance = m.get('compliance_check', '特になし')
+        st.caption(f"🛡️ **オペレーション遵守状況**: {compliance}")
+
+        st.divider()
+
+        # ---------------------------------------------------------
+        # D. 今后的建议与总评 (Action Plan)
+        # ---------------------------------------------------------
+        st.subheader("💡 今後の改善に向けたアドバイス")
+        
+        # 具体建议卡片
+        st.warning(f"**具体的アドバイス (Action Plan)**: \n\n {m.get('advice', '継続的な練習が必要です。')}")
+        
+        # 支配人的最后评语
+        st.write(f"👨‍💼 **支配人からの総評**: \n {m.get('overall_comment', '')}")
+
+        st.divider()
+
+        # E. 客人的本音 (Guest Inner Voice)
+        with st.expander("😠 お客様の生々しい本音 (Guest Inner Voice)"):
+            st.write(f"**満足度**: {g.get('satisfaction')}")
+            st.write(f"**感情の推移**: {g.get('emotional_curve')}")
+            st.divider()
+            st.write(g.get('detailed_comment'))
 
     # 3. 返回按钮
     if st.button("🏠 ダッシュボードに戻る (Return to Dashboard)", type="primary"):
         st.session_state.nav_page = "dashboard"
-        # 清理状态，为下一局做准备
         st.session_state.messages = []
         st.session_state.evaluation_result = None
         st.session_state.chat = None
         st.rerun()
 
 # ==========================================
-# 📜 10. 历史记录 (History)
+# 📜 10. プレイ履歴 (History)
 # ==========================================
 elif st.session_state.nav_page == "history":
     st.title("📜 プレイ履歴")
-    if st.button("Back"): st.session_state.nav_page = "dashboard"; st.rerun()
+    if st.button("⬅️ Dashboardに戻る"): 
+        st.session_state.nav_page = "dashboard"
+        st.rerun()
     
+    # 重新加载数据 (utils.load_json 已经修好了过滤 Bug)
     hist = utils.load_json(utils.HISTORY_FILE)
-    if not hist: st.info("履歴はありません")
     
-    for h in hist:
-        with st.expander(f"{h.get('timestamp')} - Score: {h.get('score')}"):
-            st.write(f"**World**: {h.get('world')}")
-            st.write(f"**Guest**: {h.get('guest')}")
-            st.json(h.get('result'))
+    if not hist:
+        st.info("履歴はまだありません。")
+    else:
+        for h in hist:
+            # 标题显示时间、酒店和得分
+            label = f"📅 {h.get('timestamp')} | {h.get('world')} | 得点: {h.get('score')}点"
+            with st.expander(label):
+                col1, col2 = st.columns(2)
+                col1.write(f"**👤 お客様**: {h.get('guest')}")
+                col1.write(f"**🏆 ランク**: {h.get('status')}")
+                
+                # 从嵌套的 result 字段中提取详细建议
+                detail = h.get('result', {})
+                advice = detail.get('manager_review', {}).get('advice', 'アドバイスなし')
+                col2.write(f"**💡 アドバイス**: {advice}")
+                
+                # 提供一个按钮查看完整的 JSON 原始数据（调试用）
+                if st.button(f"詳細データを確認 ({h.get('timestamp')})"):
+                    st.json(detail)

@@ -382,49 +382,70 @@ def get_azure_speech(text, gender="女性", style="customer-service", voice_name
 # ==========================================
 # 📊 5. Evaluation System (評価システム)
 # ==========================================
-def evaluate_interaction(log_text):
+def evaluate_interaction(log_text, world_context):
+    """
+    强化版评价系统：引入环境锚定与多维度反馈
+    world_context: 包含酒店名称、类型、稼动率、特殊状况等
+    """
+    
+    # 获取全局底层协议（环境锚定）
+    global_logic = f"""
+    【WORLD CONTEXT & BOUNDARIES】
+    - Hotel: {world_context.get('name')} (Type: {world_context.get('type')})
+    - Constraints: {world_context.get('constraints')}
+    - Current Condition: {world_context.get('context')}
+    - Logic: Evaluation must be realistic. For Capsule/Biz Hotels, do NOT penalize for lacking luxury service. 
+      Penalize heavily if the staff promises something impossible (e.g., room change when 'Full').
+    """
+
     prompt = f"""
-    あなたはホテルの支配人であり、接客トレーナーです。
-    以下の対話ログに基づいて、スタッフ（ユーザー）の対応を評価してください。
+    あなたはホテルの支配人兼最高評価責任者です。
+    以下の対話ログと世界観設定に基づき、プロフェッショナルなフィードバックを生成してください。
     
-    【ログ】
+    {global_logic}
+
+    【対話ログ】
     {log_text}
-    
-    【重要：出力はすべて日本語で行ってください】
-    
-    以下の厳密なJSONフォーマットで出力してください：
+
+    【評価の指示】
+    1. **総合スコア**: 0-100で直感的に採点（加算方式は不要）。
+    2. **多角的分析**: 
+       - 「良かった点（Strengths）」と「改善点（Weaknesses）」を具体的かつ論理的に。
+       - 「決定的な瞬間（Critical Moment）」：対応の成否を分けた一言を特定。
+    3. **アクションプラン**: 次回のシフトから即実践できる具体的なアドバイス。
+
+    【重要：出力は必ず以下のJSON形式で行い、すべて日本語で回答してください】
     {{
         "manager_review": {{ 
-            "score": 75,  // 0から100の整数で採点してください (StringではなくInteger)
-            "compliance": "ルール(稼働率/天気)を守れていたか？", 
-            "overall_comment": "支配人からの具体的なフィードバック (辛口でお願いします)" 
+            "score": 0,
+            "overall_status": "接客レベルの格付け（例：プロフェッショナル / 見習い / 要再トレーニング）",
+            "strengths": ["...", "..."],
+            "weaknesses": ["...", "..."],
+            "critical_moment": "対話のターニングポイントとなった発言とその理由",
+            "compliance_check": "世界観（ホテルタイプや満室状況）に沿った対応だったか？",
+            "advice": "次に同じ状況が起きた時のための具体的な改善案"
         }},
-        "learn_breakdown": {{
-            "L_listen": {{ "passed": true, "comment": "相手の話を遮らずに聞けたか？" }},
-            "E_empathize": {{ "passed": false, "comment": "共感の言葉（大変でしたね等）はあったか？" }},
-            "A_apologize": {{ "passed": true, "comment": "適切な謝罪はあったか？" }},
-            "R_resolve": {{ "passed": true, "comment": "解決策は具体的かつ現実的だったか？" }},
-            "N_notify": {{ "passed": false, "comment": "感謝の言葉や事後報告はあったか？" }}
+        "learn_analysis": {{
+            "summary": "LEARNモデル（Listen, Empathize, Apologize, Resolve, Notify）の適用状況の総評"
         }},
-        "guest_review": {{
-            "satisfaction": "★☆☆☆☆", // ★1〜★5
-            "emotional_journey": "激怒 → 諦め (感情の変化)",
-            "private_comment": "客の心の中の『本音』を書いてください。建前は不要です。スタッフのどの言葉にイラッとしたか、または救われたか、**具体的かつ感情的に、100文字以上**で描写してください。"
+        "guest_inner_voice": {{
+            "satisfaction": "★1〜★5",
+            "emotional_curve": "感情の変化（例：激怒 → 呆れ → 納得）",
+            "detailed_comment": "250文字以上の生々しい本音。スタッフのどの言葉に救われ、どの言葉に絶望したか。"
         }}
     }}
     """
     try:
         model = get_model()
+        # 确保生成配置强制使用 JSON 模式
         resp = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
         data = ensure_dict(json.loads(clean_json_text(resp.text)))
-        
-        # 容错处理
-        if "manager_review" not in data: data["manager_review"] = {"score": 0, "overall_comment": "Error"}
-        if "guest_review" not in data: data["guest_review"] = {"satisfaction": "★★★☆☆", "private_comment": "..."}
-        
         return data
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "error": str(e),
+            "manager_review": {"score": 0, "overall_status": "エラー", "advice": "APIの接続を確認してください。"}
+        }
 
 # ==========================================
 # 🤖 6. System Instructions (Core Logic)
@@ -432,7 +453,7 @@ def evaluate_interaction(log_text):
 
 def get_staff_system_instruction(world, guest, staff, date_ctx):
     """
-    [User = Staff], [AI = Guest]
+    [User = Staff], [AI = Guest]c
     ✨ Feature: Anger Meter & Dynamic Language Switching
     """
     initial_anger = guest.get('initial_anger', 50)
@@ -466,6 +487,7 @@ def get_staff_system_instruction(world, guest, staff, date_ctx):
     1. If the User apologizes sincerely AND offers a solution -> Lower anger (-10).
     2. If the User makes excuses, asks you to wait, or is silent -> Increase anger (+20).
     3. If the User solves the problem -> Anger drops to 0 (Happy).
+
     """
 
 def get_guest_system_instruction(world, guest, staff, date_ctx):
@@ -533,3 +555,4 @@ def get_observer_system_instruction(world, guest, staff, date_ctx):
     
     Make it dramatic, realistic, and tense.
     """
+

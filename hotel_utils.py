@@ -23,11 +23,22 @@ from gtts import gTTS
 # ==========================================
 # ⚙️ 1. 全局配置与路径 (Configuration)
 # ==========================================
-DATA_DIR = "data"
+# 1. 确定当前文件（hotel_utils.py）所在的绝对目录
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 2. 锁定 data 文件夹的绝对路径
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
+# 3. 基于 DATA_DIR 定义所有文件路径
 CHARS_FILE = os.path.join(DATA_DIR, "characters.json")
 STAFF_FILE = os.path.join(DATA_DIR, "staff.json")
 WORLDS_FILE = os.path.join(DATA_DIR, "worlds.json")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
+
+# 确保 data 目录一定存在（如果不存在则自动创建）
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
 
 # ==========================================
 # 🏨 2. 酒店与世界观参数 (World Params)
@@ -199,14 +210,16 @@ def validate_data(data_list):
 
 def load_json(filepath):
     """读取 JSON 文件"""
-    dir_path = os.path.dirname(filepath)
-    if dir_path and not os.path.exists(dir_path): os.makedirs(dir_path)
-    
     if not os.path.exists(filepath): return []
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
             raw_list = [ensure_dict(item) for item in data] if isinstance(data, list) else []
+            
+            # ✨ 核心修复：如果是履历文件，跳过 validate_data 的 name 检查
+            if "history.json" in filepath:
+                return raw_list
+            
             return validate_data(raw_list)
     except Exception as e:
         print(f"Error loading {filepath}: {e}")
@@ -330,3 +343,18 @@ def add_to_history(entry):
     except Exception as e:
         print(f"Error saving history: {e}")
         return False
+    
+# 全局RP要求
+def get_global_world_logic(world_name, world_type):
+    """
+    所有的 RP 行为都必须锚定在这个全局逻辑之上。
+    """
+    return f"""
+【WORLD LOGIC & BOUNDARIES (MANDATORY)】
+1. **Environment Grounding**: The current setting is "{world_name}" which is a "{world_type}".
+2. **Economic Realism**: All character expectations and behaviors MUST align with the hotel's grade.
+   - For Capsule/Biz Hotels: Focus on essential service, noise, and space. Luxury demands are strictly prohibited.
+   - For Ryokan/Resort: High-end expectations for food and hospitality are standard.
+3. **Common Sense**: Characters must not ignore the physical and social reality of the setting. 
+4. **No AI Meta-talk**: Stay in character at all times. Do not mention you are an AI or a simulation.
+"""
