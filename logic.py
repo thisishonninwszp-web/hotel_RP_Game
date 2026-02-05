@@ -428,6 +428,11 @@ def evaluate_interaction(log_text, world_context):
         "learn_analysis": {{
             "summary": "LEARNモデル（Listen, Empathize, Apologize, Resolve, Notify）の適用状況の総評"
         }},
+        "player_analysis": {{ # 👈 必须加这个，app.py 正在找它
+            "type": "接客タイプ",
+            "traits": "特徴分析",
+            "growth_tip": "アドバイス"
+        }},
         "guest_inner_voice": {{
             "satisfaction": "★1〜★5",
             "emotional_curve": "感情の変化（例：激怒 → 呆れ → 納得）",
