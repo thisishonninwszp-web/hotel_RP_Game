@@ -710,12 +710,14 @@ elif st.session_state.nav_page == "chat":
         t_voice = speaker_data.get("voice_id")
         t_gender = speaker_data.get("gender", "女性")
         
-        if role != "observer" and first_msg:
+        # --- 修改后 ---
+        if first_msg: # 去掉 role != "observer" 的判断
+            speaker_data = g if role == "staff" or role == "observer" else s # 观察者模式默认先选顾客声音或根据剧情定
             init_audio = logic.get_azure_speech(
                 first_msg, 
-                gender=t_gender, 
+                gender=speaker_data.get("gender", "女性"), 
                 style="customer-service", 
-                voice_name=t_voice
+                voice_name=speaker_data.get("voice_id")
             )
             if init_audio: 
                 st.session_state.last_audio_data = init_audio
@@ -732,22 +734,39 @@ elif st.session_state.nav_page == "chat":
         # 播完即焚，防止刷新时复读
         del st.session_state.last_audio_data
 
-    # ✅ 4. 输入区域
+    # ✅ 4. 输入区域 (这里的 if 分支是在录音逻辑之前的)
     if role == "observer":
         st.info("👁️ 観察者モード: 下のボタンを押してドラマを進めてください")
+        # --- 这里是你要替换的部分 ---
         if st.button("▶️ 続きを生成 (Action)", type="primary", use_container_width=True):
             with st.spinner("AIが脚本を執筆中..."):
                 try:
                     resp = st.session_state.chat.send_message("Next")
-                    ai_text = resp.text
-                    st.session_state.messages.append({"role": "assistant", "content": ai_text})
-                    # 观察者模式通常不需要播放语音，如有需要可在此处添加逻辑
+                    
+                    import json
+                    # 解析 JSON 并获取角色与内容
+                    ai_data = json.loads(logic.clean_json_text(resp.text))
+                    ai_role = ai_data.get("role", "Narrator")
+                    ai_text = ai_data.get("content", "")
+
+                    # 存入消息 (格式化显示)
+                    st.session_state.messages.append({"role": "assistant", "content": f"**{ai_role}**: {ai_text}"})
+                    
+                    # 语音触发 (根据角色选声音)
+                    target_speaker = g if "Guest" in ai_role else s
+                    audio_bytes = logic.get_azure_speech(
+                        ai_text, 
+                        gender=target_speaker.get("gender", "女性"), 
+                        style="empathetic", 
+                        voice_name=target_speaker.get("voice_id")
+                    )
+                    
+                    if audio_bytes:
+                        st.session_state.last_audio_data = audio_bytes
                     st.rerun()
-                except Exception as e: st.error(str(e))
-    else:
-        audio_value = st.audio_input("🎤 按下录音 (Record)")
-        text_input = st.chat_input("Type message...")
-        final_input = None
+                except Exception as e: 
+                    st.error(f"脚本生成エラー: {e}")
+        # --- 替换结束 ---
 
         # 录音去重逻辑 (保留你原来的代码)
         if audio_value:

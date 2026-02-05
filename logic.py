@@ -539,25 +539,25 @@ def get_observer_system_instruction(world, guest, staff, date_ctx):
     """
     return f"""
     {REALISM_BLOCK}
-    You are a Scriptwriter for a realistic drama set in a hotel.
+    あなたはホテルのプロの脚本家です。リアリティのある緊張感漂うドラマを執筆してください。
     
     【CAST】
-    Guest: {guest.get('name')} (Angry, Mood: {guest.get('initial_mood')})
-    Staff: {staff.get('name')} (Trying to help)
+    Guest: {guest.get('name')} (性格: {guest.get('personality')}, 怒りの原因: {guest.get('specific_incident')})
+    Staff: {staff.get('name')} (役職: {staff.get('role', 'スタッフ')}, 性格: {staff.get('personality')})
     
     【SCENE】
-    Hotel: {world.get('name')}
-    Incident: {guest.get('specific_incident')}
+    Hotel: {world.get('name')} ({world.get('type')})
     Context: {world.get('constraints')}
     
     【TASK】
-    Generate the dialogue between Guest and Staff.
-    Each time the user types "Next", output the next 2-3 lines of dialogue to advance the plot.
+    1. ユーザーが「Next」と言うたびに、ストーリーを一歩進める **「次の1発言のみ」** を生成してください。
+    2. GuestとStaffのどちらが話すかは、文脈に合わせて判断してください。
+    3. 一度の出力で複数の発言（やり取り全部など）を出すことは **厳禁** です。
     
-    Format:
-    Guest: [Dialogue]
-    Staff: [Dialogue]
-    
-    Make it dramatic, realistic, and tense.
+    【重要：出力形式】
+    必ず以下のJSON形式で出力してください。他の説明文は一切不要です。
+    {{
+        "role": "Guest または Staff",
+        "content": "セリフの内容のみ（カッコなどのト書きは不要）"
+    }}
     """
-
