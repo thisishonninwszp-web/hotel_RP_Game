@@ -697,8 +697,22 @@ elif st.session_state.nav_page == "chat":
             sys_prompt = logic.get_guest_system_instruction(w, g, s, date_ctx)
             first_msg = "お電話ありがとうございます。フロントでございます。いかがなさいましたか？"
         else: 
+            # 1. 即使是观察者模式，也使用专门的“现场再现”指令
             sys_prompt = logic.get_observer_system_instruction(w, g, s, date_ctx)
-            first_msg = "（ドラマが始まります。Nextボタンを押してください）"
+            
+            # 2. 获取实时变量
+            h_name = w.get('name', '当ホテル')
+            g_name = g.get('name', 'お客様')
+            incident = g.get('specific_incident', 'ご指摘の事項')
+
+            # 3. 采用“现场再现 / 记录档案”的口吻，增加真实感
+            # 模拟监控录像或事故调查报告的开场
+            first_msg = (
+                f"【現場再現：{h_name} フロントデスク】\n"
+                f"ロビーの喧騒の中、{g_name}様が険しい表情でカウンターに詰め寄っています。"
+                f"現在、{incident}を巡って現場には張り詰めた空気が流れています。\n"
+                "これより、当時の状況を記録に基づき詳細に再現します。"
+            )
 
         # 启动聊天 session
         st.session_state.messages.append({"role": "assistant", "content": first_msg})
@@ -734,26 +748,36 @@ elif st.session_state.nav_page == "chat":
         # 播完即焚，防止刷新时复读
         del st.session_state.last_audio_data
 
-    # ✅ 4. 输入区域 (这里的 if 分支是在录音逻辑之前的)
+    # ✅ 4. 输入区域
     if role == "observer":
         st.info("👁️ 観察者モード: 下のボタンを押してドラマを進めてください")
-        # --- 这里是你要替换的部分 ---
+        # 观察者模式专用按钮
         if st.button("▶️ 続きを生成 (Action)", type="primary", use_container_width=True):
-            with st.spinner("AIが脚本を執筆中..."):
+            with st.spinner("現場状況を再現中..."):
                 try:
+                    # 1. 向 AI 发送 Next 指令
                     resp = st.session_state.chat.send_message("Next")
                     
+                    # 2. 解析 JSON (配合 logic.py 的新格式)
                     import json
-                    # 解析 JSON 并获取角色与内容
-                    ai_data = json.loads(logic.clean_json_text(resp.text))
-                    ai_role = ai_data.get("role", "Narrator")
-                    ai_text = ai_data.get("content", "")
+                    try:
+                        # 使用 logic 里的清洗工具处理返回的文本
+                        raw_json = logic.clean_json_text(resp.text)
+                        ai_data = json.loads(raw_json)
+                        ai_role = ai_data.get("role", "Narrator")
+                        ai_text = ai_data.get("content", "")
+                    except:
+                        # 如果 AI 没按格式出牌，回退到普通文本
+                        ai_role = "Drama"
+                        ai_text = resp.text
 
-                    # 存入消息 (格式化显示)
+                    # 3. 存入聊天记录 (显示角色名)
                     st.session_state.messages.append({"role": "assistant", "content": f"**{ai_role}**: {ai_text}"})
                     
-                    # 语音触发 (根据角色选声音)
+                    # 4. 触发语音 (根据 AI 返回的角色自动匹配声音)
+                    # 如果返回的是 Guest 就用顾客声，否则用员工声
                     target_speaker = g if "Guest" in ai_role else s
+                    
                     audio_bytes = logic.get_azure_speech(
                         ai_text, 
                         gender=target_speaker.get("gender", "女性"), 
@@ -763,10 +787,15 @@ elif st.session_state.nav_page == "chat":
                     
                     if audio_bytes:
                         st.session_state.last_audio_data = audio_bytes
+                    
                     st.rerun()
                 except Exception as e: 
                     st.error(f"脚本生成エラー: {e}")
-        # --- 替换结束 ---
+                    
+    else:
+        audio_value = st.audio_input("🎤 按下录音 (Record)")
+        text_input = st.chat_input("Type message...")
+        final_input = None
 
         # 录音去重逻辑 (保留你原来的代码)
         if audio_value:
