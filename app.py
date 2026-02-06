@@ -214,7 +214,7 @@ if st.session_state.nav_page == "dashboard":
                 - 支配人AIが、あなたの対応を**LEARNモデル**（Listen, Empathize, Apologize, Resolve, Notify）に基づいて厳しく採点します。
             """)
             
-            st.info("💡 **Tip**: 難易度「Hell」では、論理的な正論よりも、感情への寄り添いが重要になります。")
+            st.info("💡 **呉山のTip**: 難易度「Hell」では、論理的な正論よりも、感情への寄り添いが重要になります。")
 
 # ==========================================
 # 🌍 5. World Editor
