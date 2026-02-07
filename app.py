@@ -103,6 +103,13 @@ init_state()
 # ==========================================
 with st.sidebar:
     st.title("🏨 Hotel Tycoon MBA")
+
+    st.session_state.user_nickname = st.text_input(
+        "👤 プレイヤー名", 
+        value=st.session_state.user_nickname
+    )
+    st.caption(f"ID: {st.session_state.user_id}") # 顺便显示一下ID
+    st.divider() # 加个分割线
     
     # --- 基础导航 ---
     if st.button("📊 ダッシュボード"): st.session_state.nav_page = "dashboard"; st.rerun()
@@ -1273,13 +1280,14 @@ elif st.session_state.nav_page == "history":
         st.session_state.nav_page = "dashboard"
         st.rerun()
     
-    # 重新加载数据 (utils.load_json 已经修好了过滤 Bug)
+    # 重新加载数据
     hist = utils.load_json(utils.HISTORY_FILE)
     
     if not hist:
         st.info("履歴はまだありません。")
     else:
-        for h in hist:
+        # ✅ 修复点 1：使用 enumerate 获取序号 i
+        for i, h in enumerate(hist):
             # 标题显示时间、酒店和得分
             label = f"📅 {h.get('timestamp')} | {h.get('world')} | 得点: {h.get('score')}点"
             with st.expander(label):
@@ -1287,13 +1295,12 @@ elif st.session_state.nav_page == "history":
                 col1.write(f"**👤 お客様**: {h.get('guest')}")
                 col1.write(f"**🏆 ランク**: {h.get('status')}")
                 
-                # 从嵌套的 result 字段中提取详细建议
                 detail = h.get('result', {})
                 advice = detail.get('manager_review', {}).get('advice', 'アドバイスなし')
                 col2.write(f"**💡 アドバイス**: {advice}")
                 
-                # 提供一个按钮查看完整的 JSON 原始数据（调试用）
-                if st.button(f"詳細データを確認 ({h.get('timestamp')})"):
+                # ✅ 修复点 2：添加唯一的 key
+                # 这样即使时间戳一模一样，Streamlit 也能分清这是第几个按钮
+                if st.button(f"詳細データを確認 ({h.get('timestamp')})", key=f"hist_btn_{i}"):
                     st.json(detail)
-
 
