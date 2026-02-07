@@ -1,4 +1,6 @@
 streamlit
 google-generativeai
 azure-cognitiveservices-speech
+gspread
+oauth2client
 gTTS

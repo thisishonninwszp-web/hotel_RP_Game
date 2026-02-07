@@ -19,6 +19,8 @@ import io
 import random
 import streamlit as st
 from gtts import gTTS
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # ==========================================
 # ⚙️ 1. 全局配置与路径 (Configuration)
@@ -358,3 +360,103 @@ def get_global_world_logic(world_name, world_type):
 3. **Common Sense**: Characters must not ignore the physical and social reality of the setting. 
 4. **No AI Meta-talk**: Stay in character at all times. Do not mention you are an AI or a simulation.
 """
+
+# ==========================================
+# ☁️ 10. 云端数据同步 (Google Sheets API)
+# ==========================================
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+def _get_gspread_client():
+    """
+    [内部函数] 连接 Google Sheets 的认证逻辑
+    """
+    try:
+        # 设定权限范围
+        scope = [
+            'https://spreadsheets.google.com/feeds',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        
+        # 从 secrets.toml 读取认证信息
+        if "gcp_service_account" not in st.secrets:
+            st.error("Secrets配置错误: 未找到 [gcp_service_account]")
+            return None
+            
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        
+        # 建立连接
+        client = gspread.authorize(creds)
+        return client
+    except Exception as e:
+        st.error(f"Google 认证失败: {e}")
+        return None
+
+def upload_log_to_cloud(row_data):
+    """
+    功能：将一行完整的实验数据追加到 Google Sheet 的【第1个标签页 (Log)】
+    参数：row_data (list) -> [时间, ID, 昵称, 模式, 分数, PreQ1...Q10, PostQ1...Q12, 感想, Log]
+    """
+    client = _get_gspread_client()
+    if not client: return False
+    
+    try:
+        # 获取文件名 (在 secrets.toml 中配置)
+        spreadsheet_name = st.secrets["gsheet"]["spreadsheet_name"]
+        
+        # 打开表格 -> 获取第 1 个标签页 (索引为 0)
+        sheet = client.open(spreadsheet_name).get_worksheet(0)
+        
+        # 追加数据
+        sheet.append_row(row_data)
+        return True
+    except Exception as e:
+        st.error(f"⚠️ 数据上传失败: {e}")
+        return False
+
+def save_asset_to_cloud(name, category, data_dict):
+    """
+    功能：将人物卡/世界观存入 Google Sheet 的【第2个标签页 (Assets)】
+    """
+    client = _get_gspread_client()
+    if not client: return False
+
+    try:
+        spreadsheet_name = st.secrets["gsheet"]["spreadsheet_name"]
+        
+        # 打开表格 -> 获取第 2 个标签页 (索引为 1)
+        # 注意：你的 Google Sheet 必须至少有两个标签页！
+        sheet = client.open(spreadsheet_name).get_worksheet(1)
+        
+        # 准备数据行
+        json_str = json.dumps(data_dict, ensure_ascii=False)
+        row = [
+            datetime.now().strftime("%Y-%m-%d %H:%M"), # 时间
+            category,                                  # 类型 (Guest/World)
+            name,                                      # 名称
+            json_str                                   # 数据本体
+        ]
+        
+        sheet.append_row(row)
+        return True
+    except Exception as e:
+        st.error(f"⚠️ 资产保存失败: {e}")
+        return False
+
+def fetch_assets_from_cloud():
+    """
+    功能：从【第2个标签页 (Assets)】读取所有共享数据
+    """
+    client = _get_gspread_client()
+    if not client: return []
+
+    try:
+        spreadsheet_name = st.secrets["gsheet"]["spreadsheet_name"]
+        sheet = client.open(spreadsheet_name).get_worksheet(1)
+        
+        # 获取所有记录 (返回字典列表)
+        return sheet.get_all_records()
+    except Exception as e:
+        # 第一次读取可能为空，不报错，返回空列表
+        return []

@@ -9,6 +9,9 @@ import logic
 import random
 import json
 import datetime
+import uuid
+import pandas as pd
+import plotly.graph_objects as go
 
 # ==========================================
 # ⚙️ 1. 初始化与配置
@@ -49,6 +52,19 @@ def init_state():
         "messages": [],
         "evaluation_result": None,
         "rating_change": None,
+
+        # --- [NEW!] 实验身份识别与计数 ---
+        "user_id": str(uuid.uuid4())[:8],    # 自动生成的8位唯一随机码
+        "user_nickname": "匿名研修生",        # 默认昵称
+        "pre_test_data": {},                  # 存储 10 个前测问题的分数
+        "pre_test_score": 0,                  # 前测 100 分制得分
+        "pre_test_done": False,               # 标记前测是否完成
+
+        # --- [NEW!] 实验与问卷相关数据 ---
+        "total_play_count": 0,      # 累计练习次数
+        "pre_test_data": {},        # 存储 10 个前测问题的 1-5 分
+        "pre_test_score": 0,        # 前测的 100 分制得分
+        "pre_test_done": False,     # 标记前测是否完成
         
         "active_world_name": None,
         "active_guest_name": None,
@@ -86,15 +102,71 @@ init_state()
 # 🧭 3. 侧边栏导航 (Sidebar)
 # ==========================================
 with st.sidebar:
-    st.title("🏨 Hotel Tycoon")
+    st.title("🏨 Hotel Tycoon MBA")
+    
+    # --- 基础导航 ---
     if st.button("📊 ダッシュボード"): st.session_state.nav_page = "dashboard"; st.rerun()
     st.markdown("---")
     if st.button("🌍 世界観 (World)"): st.session_state.nav_page = "world"; st.rerun()
     if st.button("👤 顧客 (Guest)"): st.session_state.nav_page = "guest"; st.rerun()
     if st.button("🧑‍💼 スタッフ (Staff)"): st.session_state.nav_page = "staff"; st.rerun()
+    
     st.markdown("---")
-    if st.button("🚀 出撃 (Play)", type="primary"): st.session_state.nav_page = "mode_select"; st.rerun()
+    # --- 核心入口 ---
+    if st.button("🚀 出撃 (Mission Start)", type="primary"): 
+        st.session_state.nav_page = "mode_select" 
+        st.rerun()
+        
     if st.button("📜 履歴 (History)"): st.session_state.nav_page = "history"; st.rerun()
+
+    # --- ☁️ [NEW!] 云端共享库 ---
+    st.markdown("---")
+    st.markdown("### ☁️ クラウド共有 (Cloud Assets)")
+    if st.button("🔄 クラウドから設定読込", use_container_width=True):
+        with st.spinner("同期中..."):
+            # 🔴 统一使用 utils
+            cloud_data = utils.fetch_assets_from_cloud()
+            if cloud_data:
+                st.session_state.cloud_assets = cloud_data
+                st.toast("✅ クラウドデータを同期しました！", icon="🌐")
+            else:
+                st.warning("クラウドデータはありません。")
+
+    # --- 💾 数据管理 (本地备份) ---
+    st.markdown("---")
+    with st.expander("📂 ローカルデータ管理 (Save/Load)"):
+        st.caption("※ PC環境でのバックアップ用")
+        
+        # 保存逻辑
+        current_data = {
+            "worlds": utils.load_json(utils.WORLDS_FILE),
+            "guests": utils.load_json(utils.CHARS_FILE),
+            "staffs": utils.load_json(utils.STAFF_FILE),
+            "history": utils.load_json(utils.HISTORY_FILE)
+        }
+        json_str = json.dumps(current_data, ensure_ascii=False, indent=2)
+        
+        st.download_button(
+            label="⬇️ セーブ (Download)",
+            data=json_str,
+            # 🔴 修正点在这里：改为 datetime.datetime.now()
+            file_name=f"hotel_save_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+        
+        uploaded_file = st.file_uploader("ロード (Upload)", type=["json"], label_visibility="collapsed")
+        if uploaded_file is not None:
+            try:
+                data = json.load(uploaded_file)
+                if "worlds" in data: utils.save_json(utils.WORLDS_FILE, data["worlds"])
+                if "guests" in data: utils.save_json(utils.CHARS_FILE, data["guests"])
+                if "staffs" in data: utils.save_json(utils.STAFF_FILE, data["staffs"])
+                if "history" in data: utils.save_json(utils.HISTORY_FILE, data["history"])
+                st.toast("✅ データを復元しました！", icon="🎉")
+                st.rerun()
+            except Exception as e:
+                st.error(f"読み込みエラー: {e}")
 
 # ==========================================
 # 📊 4. 仪表盘 (Dashboard)
@@ -214,7 +286,7 @@ if st.session_state.nav_page == "dashboard":
                 - 支配人AIが、あなたの対応を**LEARNモデル**（Listen, Empathize, Apologize, Resolve, Notify）に基づいて厳しく採点します。
             """)
             
-            st.info("💡 **呉山のTip**: 難易度「Hell」では、論理的な正論よりも、感情への寄り添いが重要になります。")
+            st.info("💡 **Tip**: 難易度「Hell」では、論理的な正論よりも、感情への寄り添いが重要になります。")
 
 # ==========================================
 # 🌍 5. World Editor
@@ -616,10 +688,13 @@ elif st.session_state.nav_page == "staff":
 # ==========================================
 elif st.session_state.nav_page == "mode_select":
     st.markdown("<div class='main-header'>🚀 出撃準備</div>", unsafe_allow_html=True)
+
+    # 加载数据用于显示验证
     w = next((x for x in utils.load_json(utils.WORLDS_FILE) if x["name"] == st.session_state.active_world_name), None)
     g = next((x for x in utils.load_json(utils.CHARS_FILE) if x["name"] == st.session_state.active_guest_name), None)
     s = next((x for x in utils.load_json(utils.STAFF_FILE) if x["name"] == st.session_state.active_staff_name), None)
     
+    # 显示状态栏
     col1, col2, col3 = st.columns(3)
     if w: col1.success(f"World: {w['name']}")
     else: col1.error("未選択")
@@ -628,33 +703,136 @@ elif st.session_state.nav_page == "mode_select":
     if s: col3.success(f"Staff: {s['name']}")
     else: col3.error("未選択")
     
+    # 只有当三个都选好时，才显示模式按钮
     if w and g and s:
         st.divider()
+        st.subheader("🏁 プレイモードを選択してください")
+        
+        # 定义跳转逻辑：选完模式 -> 去中转门 (Pre-test Gate)
+        def set_mode_and_go(role):
+            st.session_state.current_role = role
+            st.session_state.messages = []
+            st.session_state.evaluation_result = None
+            st.session_state.rating_change = None
+            # 💡 关键路径：去中转门
+            st.session_state.nav_page = "pre_test_gate"
+            st.rerun()
+
         m1, m2, m3 = st.columns(3)
-        if m1.button("🧑‍💼 Staff Mode\n(AI = 激怒客)", type="primary"):
-            st.session_state.current_role = "staff"
-            st.session_state.messages = []
-            st.session_state.evaluation_result = None
-            st.session_state.rating_change = None
-            st.session_state.nav_page = "chat"
+        if m1.button("🧑‍💼 Staff Mode\n(AI = 激怒客)", type="primary", use_container_width=True):
+            set_mode_and_go("staff")
+        if m2.button("😠 Guest Mode\n(AI = スタッフ)", use_container_width=True):
+            set_mode_and_go("guest")
+        if m3.button("👁️ Observer Mode\n(AI vs AI)", use_container_width=True):
+            set_mode_and_go("observer")
+
+# ==========================================
+# 🚪 8. Pre-test Gate (中转决策页)
+# ==========================================
+elif st.session_state.nav_page == "pre_test_gate":
+    st.markdown("<div class='main-header'>⚔️ ミッション開始確認</div>", unsafe_allow_html=True)
+    
+    # 再次确认配置，增加仪式感
+    st.info(f"**🏨 舞台:** {st.session_state.active_world_name} | **👤 角色:** {st.session_state.current_role.upper()}")
+    
+    st.markdown("""
+    ### 📊 接客戦闘力診断 (任意)
+    実戦の前に、今のあなたの**「接客戦闘力」**を測定してみませんか？
+    10個の質問に答えるだけで、AIが推定ランクを判定します。
+    """)
+
+    c1, c2 = st.columns(2)
+    # 路径 A：去考试
+    with c1:
+        if st.button("✨ 診断を受けてから出撃 (推奨)", type="primary", use_container_width=True):
+            st.session_state.nav_page = "pre_test"
             st.rerun()
-        if m2.button("😠 Guest Mode\n(AI = スタッフ)"):
-            st.session_state.current_role = "guest"
-            st.session_state.messages = []
-            st.session_state.evaluation_result = None
-            st.session_state.rating_change = None
-            st.session_state.nav_page = "chat"
-            st.rerun()
-        if m3.button("👁️ Observer Mode\n(AI vs AI)"):
-            st.session_state.current_role = "observer"
-            st.session_state.messages = []
-            st.session_state.evaluation_result = None
-            st.session_state.rating_change = None
+    
+    # 路径 B：直接打仗
+    with c2:
+        if st.button("🚀 診断せず直接実戦へ", use_container_width=True):
+            st.session_state.pre_test_done = False
+            st.session_state.pre_test_score = 0
             st.session_state.nav_page = "chat"
             st.rerun()
 
 # ==========================================
-# 💬 8. Chat Interface
+# 📝 9. Pre-test Assessment (全100分制)
+# ==========================================
+elif st.session_state.nav_page == "pre_test":
+    st.markdown("<div class='main-header'>⚖️ 接客スキル精密診断</div>", unsafe_allow_html=True)
+    st.info("各項目を **0点(自信なし)** 〜 **100点(完璧)** で自己採点してください。")
+    st.caption("※ 最後に平均点を算出し、あなたの「総合戦闘力」とします。")
+
+    with st.form("fun_pre_test_form"):
+        # 10个核心能力维度
+        questions = [
+            (3, "把握力: 顧客の困りごとを正確に一発で把握できる"),
+            (4, "忍耐力: 激怒している相手の話も遮らずに聞ける"),
+            (5, "表現力: 声のトーンや抑揚で「誠実さ」を演出できる"),
+            (6, "共感力: 相手が「わかってくれた」と感じる雰囲気を作れる"),
+            (7, "説明力: 複雑な事情やルールを簡潔に説明できる"),
+            (8, "柔軟性: マニュアルに縛られず、納得感のある解決策を出せる"),
+            (9, "完結力: 電話の最後を気持ちよく、ポジティブに終われる"),
+            (10, "精神力: プレッシャーの中でも焦らず、頭が真っ白にならない"),
+            (11, "臨場感: 本物のクレーム対応だと思って没入できる"),
+            (12, "成長心: 失敗しても、そこから学び取る意欲がある")
+        ]
+        
+        scores = {}
+        c1, c2 = st.columns(2)
+        
+        for i, (idx, txt) in enumerate(questions):
+            with c1 if i < 5 else c2:
+                # 🔴 改动点：范围变成 0~100，步长设为 5 (方便拖动，如 75, 80, 85)
+                # 如果你想要小数点，把 step 改为 0.1，但 100分制通常整数就够了
+                scores[f"q{idx}"] = st.slider(
+                    label=f"Q{i+1}. {txt}",
+                    min_value=0,
+                    max_value=100,
+                    value=50,
+                    step=5, # 👈 步长设为5，手感更好（50, 55, 60...）
+                    help="直感で100点満点の評価をしてください"
+                )
+
+        st.markdown("---")
+        
+        if st.form_submit_button("💯 採点結果を確定して出撃", type="primary", use_container_width=True):
+            # 💡 算分逻辑：(总分 / 10个题) = 平均分 (也就是最终的100分制得分)
+            total_sum = sum(scores.values())
+            final_score = int(total_sum / 10) # 取整数
+            
+            # 存入 Session
+            st.session_state.pre_test_score = final_score
+            st.session_state.pre_test_data = scores
+            st.session_state.pre_test_done = True
+            
+            # 趣味评级判定
+            if final_score >= 90:
+                rank = "👑 Sランク: ホテル王の器"
+                msg = "恐ろしいほどの自信...！その実力が本物か見せてもらいましょう。"
+            elif final_score >= 75:
+                rank = "🔷 Aランク: 頼れるエース"
+                msg = "高い水準でまとまっています。即戦力として期待大です。"
+            elif final_score >= 55:
+                rank = "🟢 Bランク: 期待のホープ"
+                msg = "平均的なスキルセットです。ここからの成長が楽しみです！"
+            else:
+                rank = "🔰 Cランク: 伸び代モンスター"
+                msg = "今はまだ原石です。AIとの特訓で経験値を稼ぎましょう！"
+
+            # 弹窗提示结果
+            st.toast(f"診断完了！総合戦闘力: {final_score}点\n判定: {rank}", icon="🔥")
+            
+            # 缓冲跳转
+            import time
+            with st.spinner(f"戦闘力 {final_score} で出撃中..."):
+                time.sleep(1.5) 
+                st.session_state.nav_page = "chat"
+                st.rerun()
+
+# ==========================================
+# 💬 10. Chat Interface
 # ==========================================
 elif st.session_state.nav_page == "chat":
     # 1. 基础变量初始化
@@ -841,17 +1019,18 @@ elif st.session_state.nav_page == "chat":
                     st.error(str(e))
 
 # ==========================================
-# 📊 9. Evaluation (評価 & 保存)
+# 📊 11. Evaluation & Post-test (评价与后测)
 # ==========================================
 elif st.session_state.nav_page == "eval":
-    st.markdown("<div class='main-header'>📊 接客評価レポート</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-header'>📊 最終分析レポート</div>", unsafe_allow_html=True)
     
+    # --- 1. 获取或生成评价结果 ---
     if not st.session_state.evaluation_result:
-        with st.spinner("支配人がログを確認中..."):
-            # 1. 整理对话文本
+        with st.spinner("支配人が接客ログを分析中..."):
+            # A. 整理对话文本
             log_text = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
             
-            # 2. 准备环境锚定信息 (传给评价函数)
+            # B. 准备环境锚定信息
             world_ctx = {
                 "name": st.session_state.get('active_world_name'),
                 "type": st.session_state.get('world_type', 'ホテル'),
@@ -859,34 +1038,29 @@ elif st.session_state.nav_page == "eval":
                 "context": st.session_state.get('active_world_context')
             }
             
-            # 3. 调用强化后的逻辑 (传递两个参数)
+            # C. 调用逻辑分析
             result = logic.evaluate_interaction(log_text, world_ctx)
             st.session_state.evaluation_result = result
             
-            # 🔥 [NEW!] 经营核心算法触发 
-            # 从 AI 的 "★4" 这种回复里提取数字 4
+            # D. [经营模拟] 更新酒店评分
             satisfaction_text = result.get('guest_inner_voice', {}).get('satisfaction', '★3')
             guest_stars = utils.parse_stars(satisfaction_text)
-            
-            # 更新 worlds.json 里的酒店评分，并记录变化
             old_r, new_r = utils.update_world_rating(world_ctx["name"], guest_stars)
-            st.session_state.rating_change = (old_r, new_r) # 存入 session 用于下面显示
+            st.session_state.rating_change = (old_r, new_r)
+            
+            # E. [MBA数据] 增加练习次数计数
+            st.session_state.total_play_count += 1 
 
-            # 4. 构造统一的历史条目 (确保键名和显示页面一致)
+            # F. 保存本地历史
             history_entry = {
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "world": world_ctx["name"],
                 "guest": st.session_state.get('active_guest_name'),
                 "score": result.get('manager_review', {}).get('score', 0),
                 "status": result.get('manager_review', {}).get('overall_status', 'N/A'),
-                "result": result  # 保存完整结果
+                "result": result
             }
-
-            # 5. 调用统一保存函数 (删掉了你之前那段冗余的 open(...) 代码)
-            if utils.add_to_history(history_entry):
-                st.success("✅ プレイ履歴を保存しました！")
-            else:
-                st.error("⚠️ 履歴の保存に失敗しました。")
+            utils.add_to_history(history_entry)
 
     # --- 渲染详细结果 ---
     res = st.session_state.evaluation_result
@@ -896,23 +1070,21 @@ elif st.session_state.nav_page == "eval":
     if "error" in res:
         st.error(f"評価エラー: {res['error']}")
     else:
-        # A. 核心得分与排名
+        # === A. 核心得分与经营影响 ===
         st.subheader(f"👨‍💼 支配人の判定: {m.get('overall_status', '評価中')}")
         
-        # 🟢 修改：定义两列来放置得分和经营变化
         col_score, col_tycoon = st.columns(2)
-        
         with col_score:
-            score = m.get('score', 0)
-            st.metric("综合得分", f"{score} / 100")
-            st.progress(score / 100)
+            final_score = m.get('score', 0)
+            st.metric("総合得点 (AI Score)", f"{final_score} / 100")
+            st.progress(final_score / 100)
 
         with col_tycoon: 
             if "rating_change" in st.session_state:
                 old_r, new_r = st.session_state.rating_change
                 diff = round(new_r - old_r, 2)
                 st.metric(
-                    label="🏨 ホテルの総合評価 (Tycoon Rating)",
+                    label="🏨 ホテルの評判 (Tycoon Rating)",
                     value=f"{new_r} / 5.0",
                     delta=f"{diff}",
                     delta_color="normal"
@@ -920,105 +1092,180 @@ elif st.session_state.nav_page == "eval":
 
         st.divider()
 
-        # 🔵 [NEW!] LEARNモデル分析 (学术理论支撑)
+        # === B. LEARN模型分析 ===
         st.subheader("📚 LEARNモデル適用チェック")
         l_analysis = res.get('learn_analysis', {})
-        
-        # 使用 5 列展示图标，增加视觉高级感
         l_cols = st.columns(5)
-        learn_steps = [
-            ("L", "Listen"), ("E", "Empathize"), ("A", "Apologize"), 
-            ("R", "Resolve"), ("N", "Notify")
-        ]
-        # 提示：这里你可以根据逻辑让图标变色，或者直接显示总评
+        learn_steps = [("L", "Listen"), ("E", "Empathize"), ("A", "Apologize"), ("R", "Resolve"), ("N", "Notify")]
         for i, (letter, full) in enumerate(learn_steps):
             l_cols[i].markdown(f"### {letter}")
             l_cols[i].caption(full)
-        
-        st.info(f"**LEARN総評**: {l_analysis.get('summary', '対応ログから分析中...')}")
+        st.info(f"**LEARN総評**: {l_analysis.get('summary', '分析中...')}")
 
         st.divider()
 
-        # 🟣 [NEW!] プレイヤー接客スタイル分析 (玩家个性化反馈)
-        st.subheader("👤 プレイヤー分析 (Behavioral Analysis)")
+        # === C. 玩家行为分析 ===
+        st.subheader("👤 プレイヤー分析")
         p_analysis = res.get('player_analysis', {})
-        
         pa_c1, pa_c2 = st.columns([1, 2])
         with pa_c1:
-            st.success(f"**接客タイプ**\n\n{p_analysis.get('type', '標準的')}")
+            st.success(f"**タイプ**: {p_analysis.get('type', '標準')}")
         with pa_c2:
-            st.write(f"**行動特徴**: {p_analysis.get('traits', 'ログから特徴を抽出中...')}")
-            st.warning(f"🚀 **成長のヒント**: {p_analysis.get('growth_tip', '継続的な練習でスキルアップしましょう。')}")
+            st.write(f"**特徴**: {p_analysis.get('traits', '...')}")
+            st.warning(f"🚀 **成長のヒント**: {p_analysis.get('growth_tip', '...')}")
 
+        # === D. 强项弱项 ===
         st.divider()
-
-        # ---------------------------------------------------------
-        # B. 优点与缺点 (多维度对比)
-        # ---------------------------------------------------------
-        st.subheader("⚖️ 強みと改善点 (Strengths & Weaknesses)")
         c1, c2 = st.columns(2)
         with c1:
-            st.success("🌟 **Excellent (良かった点)**")
-            strengths = m.get('strengths', [])
-            if strengths:
-                for s in strengths: st.write(f"✅ {s}")
-            else:
-                st.write("特になし")
-                
+            st.success("🌟 **良かった点**")
+            for s in m.get('strengths', []): st.write(f"✅ {s}")
         with c2:
-            st.error("⚠️ **Weakness (改善が必要な点)**")
-            weaknesses = m.get('weaknesses', [])
-            if weaknesses:
-                for w in weaknesses: st.write(f"❌ {w}")
-            else:
-                st.write("特になし")
+            st.error("⚠️ **改善すべき点**")
+            for w in m.get('weaknesses', []): st.write(f"❌ {w}")
 
+        # === E. 客人本音 ===
         st.divider()
-
-        # ---------------------------------------------------------
-        # C. 深度分析：决定性瞬间 & 规则遵守
-        # ---------------------------------------------------------
-        st.subheader("🎯 深層分析 (Deep Analysis)")
-        
-        # 关键转折点分析
-        st.info(f"**決定的な瞬間 (Critical Moment)**: \n\n {m.get('critical_moment', '分析中...')}")
-        
-        # 逻辑合规性检查（环境锚定）
-        compliance = m.get('compliance_check', '特になし')
-        st.caption(f"🛡️ **オペレーション遵守状況**: {compliance}")
-
-        st.divider()
-
-        # ---------------------------------------------------------
-        # D. 今后的建议与总评 (Action Plan)
-        # ---------------------------------------------------------
-        st.subheader("💡 今後の改善に向けたアドバイス")
-        
-        # 具体建议卡片
-        st.warning(f"**具体的アドバイス (Action Plan)**: \n\n {m.get('advice', '継続的な練習が必要です。')}")
-        
-        # 支配人的最后评语
-        st.write(f"👨‍💼 **支配人からの総評**: \n {m.get('overall_comment', '')}")
-
-        st.divider()
-
-        # E. 客人的本音 (Guest Inner Voice)
-        with st.expander("😠 お客様の生々しい本音 (Guest Inner Voice)"):
+        with st.expander("😠 お客様の生々しい本音 (Guest Voice)", expanded=False):
             st.write(f"**満足度**: {g.get('satisfaction')}")
-            st.write(f"**感情の推移**: {g.get('emotional_curve')}")
-            st.divider()
+            st.write(f"**感情推移**: {g.get('emotional_curve')}")
             st.write(g.get('detailed_comment'))
 
-    # 3. 返回按钮
-    if st.button("🏠 ダッシュボードに戻る (Return to Dashboard)", type="primary"):
+    st.markdown("---")
+
+    # ==========================================
+    # 🧠 Post-test & Gap Analysis (核心MBA模块)
+    # ==========================================
+    st.subheader("🧠 振り返り & 研究データ送信 (Post-test)")
+    st.write("実際のプレイを終えて、**今の実感**として自己採点してください。（0〜100点）")
+    st.caption("※ 送信後、事前の自己評価とのギャップ（過信/過小評価）がグラフで表示されます。")
+
+    with st.form("post_test_form"):
+        # 10个核心能力维度 (Post-test)
+        questions = [
+            (3, "把握力: 顧客の困りごとを正確に把握できた"),
+            (4, "忍耐力: 怒っている話を最後まで聞けた"),
+            (5, "表現力: 声のトーンで誠実さを伝えられた"),
+            (6, "共感力: 話しやすい雰囲気をつくれた"),
+            (7, "説明力: 事実関係をわかりやすく説明できた"),
+            (8, "柔軟性: ルールの中で解決策を練れた"),
+            (9, "完結力: 納得感のある締めで終えられた"),
+            (10, "精神力: 焦らず自分の意志を伝えられた"),
+            (11, "臨場感: 本物のクレームに近い緊張感を感じた"),
+            (12, "成長心: 今回の経験は今後に役立つと感じた")
+        ]
+        
+        post_scores = {}
+        c1, c2 = st.columns(2)
+        for i, (idx, txt) in enumerate(questions):
+            with c1 if i < 5 else c2:
+                post_scores[f"q{idx}"] = st.slider(f"Q{i+1}. {txt}", 0, 100, 50, step=5, key=f"post_{idx}")
+
+        user_comment = st.text_area("✍️ 自由感想 (任意):", placeholder="例：AIの反応が予想以上に早くて焦った...")
+
+        st.markdown("---")
+        submit_cloud = st.form_submit_button("📊 レポート生成 & データ送信 (Submit)", type="primary", use_container_width=True)
+        
+    # ✅ 重点：这里缩进退回最左边（或者与 with st.form 对齐）
+    if submit_cloud:
+        st.success("分析レポートを生成しました！")
+        
+        # ---------------------------------------------------------
+        # 1. 绘制 RPG 雷达图 (Gap Analysis)
+        # ---------------------------------------------------------
+        if st.session_state.get('pre_test_done', False):
+            import plotly.graph_objects as go
+            
+            # 定义 10 个维度
+            labels = ["把握", "忍耐", "表現", "共感", "説明", "柔軟", "完結", "精神", "臨場", "成長"]
+            
+            # 提取数据
+            pre_values = []
+            post_values = []
+            
+            for i in range(10): 
+                q_key = f"q{i+3}"
+                # Pre-test 数据处理
+                raw_pre = st.session_state.pre_test_data.get(q_key, 0)
+                if raw_pre <= 5 and raw_pre > 0: raw_pre *= 20
+                elif raw_pre <= 10 and raw_pre > 0: raw_pre *= 10
+                pre_values.append(raw_pre)
+                # Post-test 数据
+                post_values.append(post_scores.get(q_key, 0))
+            
+            # 闭环处理
+            labels_closed = labels + [labels[0]]
+            pre_closed = pre_values + [pre_values[0]]
+            post_closed = post_values + [post_values[0]]
+
+            # 绘图
+            fig = go.Figure()
+            # Before (蓝)
+            fig.add_trace(go.Scatterpolar(
+                r=pre_closed, theta=labels_closed, fill='toself', 
+                name='Before (予想)', line_color='#A0C4FF', opacity=0.6
+            ))
+            # After (红)
+            fig.add_trace(go.Scatterpolar(
+                r=post_closed, theta=labels_closed, fill='toself', 
+                name='After (実感)', line_color='#FFADAD', opacity=0.7
+            ))
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=10, color="gray")),
+                    bgcolor='rgba(0,0,0,0)'
+                ),
+                title="📉 能力値ギャップ分析 (Before vs After)",
+                margin=dict(l=40, r=40, t=40, b=20)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("※ Pre-test未実施のため、比較グラフは表示されません。")
+
+        # ---------------------------------------------------------
+        # 2. 打包并上传数据
+        # ---------------------------------------------------------
+        with st.spinner("クラウドに研究データを送信中..."):
+            pre = st.session_state.get('pre_test_data', {})
+            
+            log_data = [
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), 
+                st.session_state.get('user_id', 'Guest'),           
+                st.session_state.get('user_nickname', 'Unknown'),   
+                st.session_state.get('current_role', 'Staff'),      
+                st.session_state.get('total_play_count', 1),        
+                st.session_state.get('active_world_name'),          
+                st.session_state.get('active_guest_name'),          
+                final_score,                                        
+                
+                # Pre-test (Q3-Q10)
+                pre.get("q3",0), pre.get("q4",0), pre.get("q5",0), pre.get("q6",0),
+                pre.get("q7",0), pre.get("q8",0), pre.get("q9",0), pre.get("q10",0),
+                
+                # Post-test (Q3-Q12)
+                post_scores.get("q3",0), post_scores.get("q4",0), post_scores.get("q5",0), post_scores.get("q6",0), 
+                post_scores.get("q7",0), post_scores.get("q8",0), post_scores.get("q9",0), post_scores.get("q10",0), 
+                post_scores.get("q11",0), post_scores.get("q12",0),
+                
+                user_comment,                  
+                str(st.session_state.messages) 
+            ]
+            
+            if utils.upload_log_to_cloud(log_data):
+                st.toast("✅ データ送信完了！分析ありがとうございました！", icon="🎓")
+                st.balloons()
+            else:
+                st.error("送信失敗。Secrets設定を確認してください。")
+
+    # 返回按钮
+    if st.button("🏠 ダッシュボードに戻る", type="secondary", use_container_width=True):
         st.session_state.nav_page = "dashboard"
         st.session_state.messages = []
         st.session_state.evaluation_result = None
-        st.session_state.chat = None
         st.rerun()
 
 # ==========================================
-# 📜 10. プレイ履歴 (History)
+# 📜 12. プレイ履歴 (History)
 # ==========================================
 elif st.session_state.nav_page == "history":
     st.title("📜 プレイ履歴")
@@ -1048,3 +1295,5 @@ elif st.session_state.nav_page == "history":
                 # 提供一个按钮查看完整的 JSON 原始数据（调试用）
                 if st.button(f"詳細データを確認 ({h.get('timestamp')})"):
                     st.json(detail)
+
+
