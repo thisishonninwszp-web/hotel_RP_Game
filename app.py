@@ -791,7 +791,7 @@ elif st.session_state.nav_page == "pre_test":
                     min_value=0,
                     max_value=100,
                     value=50,
-                    step=5, # 👈 步长设为5，手感更好（50, 55, 60...）
+                    step=1, # 👈 步长设为5，手感更好（50, 55, 60...）
                     help="直感で100点満点の評価をしてください"
                 )
 
@@ -1159,7 +1159,7 @@ elif st.session_state.nav_page == "eval":
         c1, c2 = st.columns(2)
         for i, (idx, txt) in enumerate(questions):
             with c1 if i < 5 else c2:
-                post_scores[f"q{idx}"] = st.slider(f"Q{i+1}. {txt}", 0, 100, 50, step=5, key=f"post_{idx}")
+                post_scores[f"q{idx}"] = st.slider(f"Q{i+1}. {txt}", 0, 100, 50, step=1, key=f"post_{idx}")
 
         user_comment = st.text_area("✍️ 自由感想 (任意):", placeholder="例：AIの反応が予想以上に早くて焦った...")
 
